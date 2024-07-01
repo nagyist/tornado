@@ -9,6 +9,7 @@ from tornado.iostream import (
     StreamClosedError,
     _StreamBuffer,
 )
+from tornado.httpclient import AsyncHTTPClient
 from tornado.httputil import HTTPHeaders
 from tornado.locks import Condition, Event
 from tornado.log import gen_log
@@ -56,7 +57,7 @@ class HelloHandler(RequestHandler):
         self.write("Hello")
 
 
-class TestIOStreamWebMixin(object):
+class TestIOStreamWebMixin:
     def _make_client_iostream(self):
         raise NotImplementedError()
 
@@ -70,6 +71,15 @@ class TestIOStreamWebMixin(object):
         # EPOLLRDHUP event delivered at the same time as the read event,
         # while kqueue reports them as a second read/write event with an EOF
         # flag.
+        if (
+            AsyncHTTPClient.configured_class().__name__.endswith("CurlAsyncHTTPClient")
+            and platform.system() == "Darwin"
+        ):
+            # It's possible that this is Tornado's fault, either in AsyncIOLoop or in
+            # CurlAsyncHTTPClient, but we've also seen this kind of issue in libcurl itself
+            # (especially a long time ago). The error is tied to the use of Apple's
+            # SecureTransport instead of OpenSSL.
+            self.skipTest("libcurl doesn't handle closed connections cleanly on macOS")
         response = self.fetch("/", headers={"Connection": "close"})
         response.rethrow()
 
@@ -167,7 +177,7 @@ class TestIOStreamWebMixin(object):
             stream.read_bytes(1)
 
 
-class TestReadWriteMixin(object):
+class TestReadWriteMixin:
     # Tests where one stream reads and the other writes.
     # These should work for BaseIOStream implementations.
 

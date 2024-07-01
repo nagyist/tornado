@@ -115,7 +115,7 @@ class BaseSSLTest(AsyncHTTPSTestCase):
         return Application([("/", HelloWorldRequestHandler, dict(protocol="https"))])
 
 
-class SSLTestMixin(object):
+class SSLTestMixin:
     def get_ssl_options(self):
         return dict(
             ssl_version=self.get_ssl_version(),
@@ -282,13 +282,11 @@ class HTTPConnectionTest(AsyncHTTPTestCase):
                 [
                     b"Content-Disposition: form-data; name=argument",
                     b"",
-                    "\u00e1".encode("utf-8"),
+                    "\u00e1".encode(),
                     b"--1234567890",
-                    'Content-Disposition: form-data; name="files"; filename="\u00f3"'.encode(
-                        "utf8"
-                    ),
+                    'Content-Disposition: form-data; name="files"; filename="\u00f3"'.encode(),
                     b"",
-                    "\u00fa".encode("utf-8"),
+                    "\u00fa".encode(),
                     b"--1234567890--",
                     b"",
                 ]
@@ -382,7 +380,7 @@ class TypeCheckHandler(RequestHandler):
     def check_type(self, name, obj, expected_type):
         actual_type = type(obj)
         if expected_type != actual_type:
-            self.errors[name] = "expected %s, got %s" % (expected_type, actual_type)
+            self.errors[name] = f"expected {expected_type}, got {actual_type}"
 
 
 class PostEchoHandler(RequestHandler):
@@ -576,6 +574,76 @@ Transfer-Encoding: chunked
             )
         )
         with ExpectLog(gen_log, ".*invalid chunk size", level=logging.INFO):
+            start_line, headers, response = self.io_loop.run_sync(
+                lambda: read_stream_body(self.stream)
+            )
+        self.assertEqual(400, start_line.code)
+
+    def test_chunked_request_body_duplicate_header(self):
+        # Repeated Transfer-Encoding headers should be an error (and not confuse
+        # the chunked-encoding detection to mess up framing).
+        self.stream.write(
+            b"""\
+POST /echo HTTP/1.1
+Transfer-Encoding: chunked
+Transfer-encoding: chunked
+
+2
+ok
+0
+
+"""
+        )
+        with ExpectLog(
+            gen_log,
+            ".*Unsupported Transfer-Encoding chunked,chunked",
+            level=logging.INFO,
+        ):
+            start_line, headers, response = self.io_loop.run_sync(
+                lambda: read_stream_body(self.stream)
+            )
+        self.assertEqual(400, start_line.code)
+
+    def test_chunked_request_body_unsupported_transfer_encoding(self):
+        # We don't support transfer-encodings other than chunked.
+        self.stream.write(
+            b"""\
+POST /echo HTTP/1.1
+Transfer-Encoding: gzip, chunked
+
+2
+ok
+0
+
+"""
+        )
+        with ExpectLog(
+            gen_log, ".*Unsupported Transfer-Encoding gzip, chunked", level=logging.INFO
+        ):
+            start_line, headers, response = self.io_loop.run_sync(
+                lambda: read_stream_body(self.stream)
+            )
+        self.assertEqual(400, start_line.code)
+
+    def test_chunked_request_body_transfer_encoding_and_content_length(self):
+        # Transfer-encoding and content-length are mutually exclusive
+        self.stream.write(
+            b"""\
+POST /echo HTTP/1.1
+Transfer-Encoding: chunked
+Content-Length: 2
+
+2
+ok
+0
+
+"""
+        )
+        with ExpectLog(
+            gen_log,
+            ".*Message with both Transfer-Encoding and Content-Length",
+            level=logging.INFO,
+        ):
             start_line, headers, response = self.io_loop.run_sync(
                 lambda: read_stream_body(self.stream)
             )
@@ -919,8 +987,8 @@ class KeepAliveTest(AsyncHTTPTestCase):
         self.stream.write(b"GET / HTTP/1.0\r\n\r\n")
         yield self.read_response()
         data = yield self.stream.read_until_close()
-        self.assertTrue(not data)
-        self.assertTrue("Connection" not in self.headers)
+        self.assertFalse(data)
+        self.assertNotIn("Connection", self.headers)
         self.close()
 
     @gen_test

@@ -29,9 +29,6 @@ For example, here's a coroutine-based handler:
             do_something_with_response(response)
             self.render("template.html")
 
-.. testoutput::
-   :hide:
-
 Asynchronous functions in Tornado return an ``Awaitable`` or `.Future`;
 yielding this object returns its result.
 
@@ -51,9 +48,6 @@ of results will be returned when they are all finished:
         response3 = response_dict['response3']
         response4 = response_dict['response4']
 
-.. testoutput::
-   :hide:
-
 If ``tornado.platform.twisted`` is imported, it is also possible to
 yield Twisted's ``Deferred`` objects. See the `convert_yielded`
 function to extend this mechanism.
@@ -66,6 +60,7 @@ function to extend this mechanism.
    via ``singledispatch``.
 
 """
+
 import asyncio
 import builtins
 import collections
@@ -165,13 +160,11 @@ def _fake_ctx_run(f: Callable[..., _T], *args: Any, **kw: Any) -> _T:
 @overload
 def coroutine(
     func: Callable[..., "Generator[Any, Any, _T]"]
-) -> Callable[..., "Future[_T]"]:
-    ...
+) -> Callable[..., "Future[_T]"]: ...
 
 
 @overload
-def coroutine(func: Callable[..., _T]) -> Callable[..., "Future[_T]"]:
-    ...
+def coroutine(func: Callable[..., _T]) -> Callable[..., "Future[_T]"]: ...
 
 
 def coroutine(
@@ -307,7 +300,7 @@ class Return(Exception):
         self.args = (value,)
 
 
-class WaitIterator(object):
+class WaitIterator:
     """Provides an iterator to yield the results of awaitables as they finish.
 
     Yielding a set of awaitables like this:
@@ -369,10 +362,10 @@ class WaitIterator(object):
             raise ValueError("You must provide args or kwargs, not both")
 
         if kwargs:
-            self._unfinished = dict((f, k) for (k, f) in kwargs.items())
+            self._unfinished = {f: k for (k, f) in kwargs.items()}
             futures = list(kwargs.values())  # type: Sequence[Future]
         else:
-            self._unfinished = dict((f, i) for (i, f) in enumerate(args))
+            self._unfinished = {f: i for (i, f) in enumerate(args)}
             futures = args
 
         self._finished = collections.deque()  # type: Deque[Future]
@@ -675,7 +668,7 @@ def sleep(duration: float) -> "Future[None]":
     return f
 
 
-class _NullFuture(object):
+class _NullFuture:
     """_NullFuture resembles a Future that finished with a result of None.
 
     It's not actually a `Future` to avoid depending on a particular event loop.
@@ -720,7 +713,7 @@ In native coroutines, the equivalent of ``yield gen.moment`` is
 """
 
 
-class Runner(object):
+class Runner:
     """Internal implementation of `tornado.gen.coroutine`.
 
     Maintains information about pending callbacks and their results.
@@ -881,7 +874,7 @@ def convert_yielded(yielded: _Yieldable) -> Future:
     elif isawaitable(yielded):
         return _wrap_awaitable(yielded)  # type: ignore
     else:
-        raise BadYieldError("yielded unknown object %r" % (yielded,))
+        raise BadYieldError(f"yielded unknown object {yielded!r}")
 
 
 convert_yielded = singledispatch(convert_yielded)

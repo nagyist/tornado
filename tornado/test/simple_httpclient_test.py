@@ -142,7 +142,7 @@ class RespondInPrepareHandler(RequestHandler):
         self.finish("forbidden")
 
 
-class SimpleHTTPClientTestMixin(object):
+class SimpleHTTPClientTestMixin:
     def create_client(self, **kwargs):
         raise NotImplementedError()
 
@@ -179,10 +179,10 @@ class SimpleHTTPClientTestMixin(object):
 
     def test_singleton(self: typing.Any):
         # Class "constructor" reuses objects on the same IOLoop
-        self.assertTrue(SimpleAsyncHTTPClient() is SimpleAsyncHTTPClient())
+        self.assertIs(SimpleAsyncHTTPClient(), SimpleAsyncHTTPClient())
         # unless force_instance is used
-        self.assertTrue(
-            SimpleAsyncHTTPClient() is not SimpleAsyncHTTPClient(force_instance=True)
+        self.assertIsNot(
+            SimpleAsyncHTTPClient(), SimpleAsyncHTTPClient(force_instance=True)
         )
         # different IOLoops use different objects
         with closing(IOLoop()) as io_loop2:
@@ -193,7 +193,7 @@ class SimpleHTTPClientTestMixin(object):
 
             client1 = self.io_loop.run_sync(make_client)
             client2 = io_loop2.run_sync(make_client)
-            self.assertTrue(client1 is not client2)
+            self.assertIsNot(client1, client2)
 
     def test_connection_limit(self: typing.Any):
         with closing(self.create_client(max_clients=2)) as client:
@@ -215,14 +215,14 @@ class SimpleHTTPClientTestMixin(object):
             self.triggers.popleft()()
             self.triggers.popleft()()
             self.wait(condition=lambda: (len(self.triggers) == 2 and len(seen) == 2))
-            self.assertEqual(set(seen), set([0, 1]))
+            self.assertEqual(set(seen), {0, 1})
             self.assertEqual(len(client.queue), 0)
 
             # Finish all the pending requests
             self.triggers.popleft()()
             self.triggers.popleft()()
             self.wait(condition=lambda: len(seen) == 4)
-            self.assertEqual(set(seen), set([0, 1, 2, 3]))
+            self.assertEqual(set(seen), {0, 1, 2, 3})
             self.assertEqual(len(self.triggers), 0)
 
     @gen_test
@@ -251,7 +251,7 @@ class SimpleHTTPClientTestMixin(object):
     def test_default_user_agent(self: typing.Any):
         response = self.fetch("/user_agent", method="GET")
         self.assertEqual(200, response.code)
-        self.assertEqual(response.body.decode(), "Tornado/{}".format(version))
+        self.assertEqual(response.body.decode(), f"Tornado/{version}")
 
     def test_see_other_redirect(self: typing.Any):
         for code in (302, 303):
@@ -828,7 +828,7 @@ class ChunkedWithContentLengthTest(AsyncHTTPTestCase):
         with ExpectLog(
             gen_log,
             (
-                "Malformed HTTP message from None: Response "
+                "Malformed HTTP message from None: Message "
                 "with both Transfer-Encoding and Content-Length"
             ),
             level=logging.INFO,

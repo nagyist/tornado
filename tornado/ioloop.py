@@ -116,9 +116,6 @@ class IOLoop(Configurable):
         if __name__ == "__main__":
             asyncio.run(main())
 
-    .. testoutput::
-       :hide:
-
     Most applications should not attempt to construct an `IOLoop` directly,
     and instead initialize the `asyncio` event loop and use `IOLoop.current()`.
     In some cases, such as in test frameworks when initializing an `IOLoop`
@@ -181,7 +178,7 @@ class IOLoop(Configurable):
             impl = import_object(impl)
         if isinstance(impl, type) and not issubclass(impl, BaseAsyncIOLoop):
             raise RuntimeError("only AsyncIOLoop is allowed when asyncio is available")
-        super(IOLoop, cls).configure(impl, **kwargs)
+        super().configure(impl, **kwargs)
 
     @staticmethod
     def instance() -> "IOLoop":
@@ -557,7 +554,7 @@ class IOLoop(Configurable):
         deadline: Union[float, datetime.timedelta],
         callback: Callable,
         *args: Any,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> object:
         """Runs the ``callback`` at the time ``deadline`` from the I/O loop.
 
@@ -708,7 +705,7 @@ class IOLoop(Configurable):
         self,
         executor: Optional[concurrent.futures.Executor],
         func: Callable[..., _T],
-        *args: Any
+        *args: Any,
     ) -> "Future[_T]":
         """Runs a function in a ``concurrent.futures.Executor``. If
         ``executor`` is ``None``, the IO loop's default executor will be used.
@@ -822,7 +819,7 @@ class IOLoop(Configurable):
         self._pending_tasks.discard(f)
 
 
-class _Timeout(object):
+class _Timeout:
     """An IOLoop timeout, a UNIX timestamp and a callback"""
 
     # Reduce memory overhead when there are lots of pending callbacks
@@ -851,7 +848,7 @@ class _Timeout(object):
         return self.tdeadline <= other.tdeadline
 
 
-class PeriodicCallback(object):
+class PeriodicCallback:
     """Schedules the given callback to be called periodically.
 
     The callback is called every ``callback_time`` milliseconds when
